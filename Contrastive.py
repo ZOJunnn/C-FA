@@ -1,5 +1,3 @@
-"""Implementation of Untargeted AdvPC CW Attack for point perturbation.
-"""
 
 import pdb
 import time
@@ -16,93 +14,6 @@ from util.dist_utils import L2Dist, ChamferDist, HausdorffDist
 from util.augment import drop, rotation, scaling, shear, translation, jitter
 from torchvision.transforms import Compose
 from util.distri_loss import DistriLoss
-
-from plyfile import PlyData,PlyElement
-import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
-
-
-def fea_fig(ori_data, weight):
-    xyz = ori_data.cpu().detach()
-    xyz_numpy = xyz.numpy().squeeze(0)
-
-    weights = weight.cpu().detach()
-    weights = weights.numpy().reshape(-1)  # This will act as our "weights" for color mapping
-
-    # Create a new figure for plotting
-    fig = plt.figure(figsize=(10, 7))
-    ax = fig.add_subplot(111, projection='3d')
-
-    # Scatter plot for the point cloud data
-    scatter = ax.scatter(xyz_numpy[0, :], xyz_numpy[1, :], xyz_numpy[2, :], c=weights, cmap='viridis', alpha=1)  # Using green color, modify as needed
-
-    # Set labels (optional)
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_zticks([])
-
-    plt.show()
-    image_name = '/home/chenhai-fwxz/ZYJ/Contra-master-v5/3' + '.png'
-
-    plt.savefig(image_name)
-    plt.close()
-
-
-
-# def fea_fig_to_ply(ori_data, weight):
-#     # Convert the input data and weights from PyTorch tensors to NumPy arrays
-#     xyz = ori_data.cpu().detach().numpy().squeeze(0)  # Assuming ori_data shape is [1, 3, N]
-#     weights = weight.cpu().detach().numpy().reshape(-1)  # Assuming weights shape is [N,]
-
-#     # Create an Open3D PointCloud object
-#     pcd = o3d.geometry.PointCloud()
-
-#     # Assign points to the point cloud
-#     pcd.points = o3d.utility.Vector3dVector(xyz.T)  # Transpose xyz to get shape [N, 3]
-
-#     # Optionally, assign colors to each point based on weights
-#     # Here, we map the weights to a colormap. This step is optional.
-#     # Normalize weights to [0, 1] for colormap mapping
-#     weights_normalized = ((weights - weights.min()) / (weights.max() - weights.min()))
-
-
-    
-#     colors = plt.get_cmap('cividis')(weights_normalized)[:, :3]  # Use viridis colormap, exclude alpha channel
-#     pcd.colors = o3d.utility.Vector3dVector(colors)
-
-#     file_name = '/home/chenhai-fwxz/ZYJ/C-FA/test-pconv' + '.ply'
-#     # Save the point cloud to a .ply file
-#     o3d.io.write_point_cloud(file_name, pcd)
-
-def fea_fig_to_ply(ori_data, weight):
-    # Convert the input data and weights from PyTorch tensors to NumPy arrays
-    xyz = ori_data.cpu().detach().numpy().squeeze(0)  # Assuming ori_data shape is [1, 3, N]
-    weights = weight.cpu().detach().numpy().reshape(-1)  # Assuming weights shape is [N,]
-
-    # Create an Open3D PointCloud object
-    pcd = o3d.geometry.PointCloud()
-
-    # Assign points to the point cloud
-    pcd.points = o3d.utility.Vector3dVector(xyz.T)  # Transpose xyz to get shape [N, 3]
-
-    # Normalize weights to [0, 1] for colormap mapping
-    weights_normalized = ((weights - weights.min()) / (weights.max() - weights.min()))
-
-    # Create a custom colormap from gray to red
-    colors = [(245/255, 245/255, 245/255), (0/255, 90/255, 158/255)]  # Define the color range
-    cmap = LinearSegmentedColormap.from_list("gray_to_red", colors, N=256)  # Create a colormap object
-    mapped_colors = cmap(weights_normalized)[:, :3]  # Map normalized weights to the colormap, exclude alpha
-
-    pcd.colors = o3d.utility.Vector3dVector(mapped_colors)
-
-    file_name = '/home/chenhai-fwxz/ZYJ/C-FA/test-dgcnn' + '.ply'
-    # Save the point cloud to a .ply file
-    o3d.io.write_point_cloud(file_name, pcd)
-
 
 
 def get_lr_scheduler(optim, scheduler, total_step):
@@ -133,14 +44,13 @@ def grad_scores(logits, feature):
 
 class CWContra:
 
-    def __init__(self, model, dist_func1, dist_func2, dist_func3, contra_func, curv_func, fea_func, clip_func):
+    def __init__(self, model, dist_func_cd, dist_func_h, contra_func, fea_func, clip_func):
 
         self.model = model.cuda()
         self.model.eval()
 
-        self.dist_func1 = dist_func1
-        self.dist_func2 = dist_func2
-        self.dist_func3 = dist_func3
+        self.dist_func_cd = dist_func_cd
+        self.dist_func_h = dist_func_h
         self.contra_func = contra_func
         self.curv_func = curv_func
         self.fea_func = fea_func
@@ -163,11 +73,7 @@ class CWContra:
 
         logits_grad= self.model(ori_data1)
         weight = logits_grad[-1]
-        # fea_fig_to_ply(ori_data1, weight) # 特征图
 
-        # feature,feature_gradients_abs = grad_scores(logits_grad[0], ori_data1)
-
-        # print(okkkkkkkkkkkkkkkkkkkkkkkkkk)
         # record best results in binary search
         o_bestdist = np.array([1e10] * B)
         o_bestscore = np.array([-1] * B)
@@ -176,15 +82,14 @@ class CWContra:
         for binary_step in range(args.binary_step):
             offset = torch.zeros(B, 3, K).cuda()
             nn.init.normal_(offset, mean=0, std=1e-3) # 正态分布初始化
-            # feature_gradients_abs1 = torch.softmax(feature_gradients_abs, dim=2)
-            adv_data = ori_data.clone() + offset# + offset * feature_gradients_abs1.detach()
+
+            adv_data = ori_data.clone() + offset
             adv_data.requires_grad_()
-            opt = optim.Adam([adv_data], lr=args.attack_lr) #, weight_decay=0.
+            opt = optim.Adam([adv_data], lr=args.attack_lr)
             lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=0.9990)          
 
-            dist_loss1 = torch.tensor(0.).cuda()
-            dist_loss2 = torch.tensor(0.).cuda()
-            dist_loss3 = torch.tensor(0.).cuda()
+            dist_loss_cd = torch.tensor(0.).cuda()
+            dist_loss_h = torch.tensor(0.).cuda()
             contra_loss = torch.tensor(0.).cuda()
             fea_loss = torch.tensor(0.).cuda()
 
@@ -200,12 +105,6 @@ class CWContra:
                 t1 = time.time()
 
                 functions = [shear, translation, rotation, jitter, scaling, drop] # shear, translation, rotation, jitter, scaling, drop
-                # selected_function1 = random.choice(functions)
-                # aug_pc1 = selected_function1(ori_data)
-                # aug_pc1.requires_grad = False
-                # selected_function2 = random.choice(functions)
-                # aug_pc2 = selected_function2(ori_data)
-                # aug_pc2.requires_grad = False
 
 
                 aug_pc_1 = []
@@ -238,10 +137,6 @@ class CWContra:
                 if isinstance(aug_pc2_logits, tuple):
                     aug_pc2_logits = aug_pc2_logits[0]
                     
-                # aug_pc3_logits = self.model(aug_pc3)
-                # if isinstance(aug_pc3_logits, tuple):
-                #     aug_pc3_logits = aug_pc3_logits[0]
-                
                 #original adversarial loss
                 adv_pc_logits = self.model(adv_data)
                 if isinstance(adv_pc_logits, tuple):
@@ -250,24 +145,18 @@ class CWContra:
                 features_adv,_ = grad_scores(adv_pc_logits, adv_features) 
 
                 # 联合优化
-                contra_loss = self.contra_func(adv_pc_logits, aug_pc1_logits, aug_pc2_logits).mean() # 两个数据增强
-                # contra_loss = self.contra_func(adv_pc_logits, aug_pc1_logits).mean() # 一个数据增强消融实验
-                # contra_loss = self.contra_func(adv_pc_logits, aug_pc1_logits, aug_pc2_logits, aug_pc3_logits).mean() # 三个数据增强消融实验
+                contra_loss = self.contra_func(adv_pc_logits, aug_pc1_logits, aug_pc2_logits).mean()
 
                 fea_loss = self.fea_func(features_ori, features_adv).mean()
 
-                curv_loss = self.curv_func(ori_data, adv_data, normal).mean()
-
-                dist_loss1 = self.dist_func1(adv_data, ori_data)
-                dist_loss2 = self.dist_func2(adv_data, ori_data)
-                dist_loss3 = self.dist_func3(adv_data, ori_data)
-                dist_loss = args.L2_loss_weight * dist_loss1 + args.Chamfer_loss_weight * dist_loss2 + args.Hausdorff_loss_weight * dist_loss3
+                dist_loss_cd = self.dist_func_cd(adv_data, ori_data)
+                dist_loss_h = self.dist_func_h(adv_data, ori_data)
+                dist_loss =args.Chamfer_loss_weight * dist_loss_cd + args.Hausdorff_loss_weight * dist_loss_h
                 
-                loss = args.contra_loss_weight * contra_loss + args.curv_loss_weight * curv_loss + args.dist_loss_weight * dist_loss + args.fea_loss_weight * (1 / fea_loss) # args.contra_loss_weight * contra_loss + 
+                loss = args.contra_loss_weight * contra_loss + args.dist_loss_weight * dist_loss + args.fea_loss_weight * (1 / fea_loss)
                 opt.zero_grad()
 
                 loss.backward()
-
 
                 opt.step()
                 if args.is_use_lr_scheduler:
