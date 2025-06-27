@@ -26,7 +26,7 @@ sys.path.append('../')
 sys.path.append('./')
 
 from dataset import ModelNetDataLoader, CustomModelNet40, ModelNet40Attack
-from model import DGCNN, PointNetCls, feature_transform_reguliarzer, PointNet2ClsSsg, PointConvDensityClsSsg #, PNFeature, PN2Feature, DGCNNFeature, PConvFeature
+from model import DGCNN, PointNetCls, feature_transform_reguliarzer, PointNet2ClsSsg, PointConvDensityClsSsg
 from model.mamba3d.Mamba3D import Mamba3D
 from util.utils import cal_loss, AverageMeter, get_lr, str2bool, set_seed
 from util import ClipPointsLinf, ChamferkNNDist, simCLRLoss, CurvLoss, L2Dist, ChamferDist, HausdorffDist
@@ -35,47 +35,7 @@ from config import BEST_WEIGHTS
 from config import MAX_BATCH as BATCH_SIZE
 from Contrastive import CWContra
 
-from plyfile import PlyData,PlyElement
 from util.augment import drop, rotation, scaling, shear, translation, jitter
-
-def normalize_points(points):
-    """points: [K, 3]"""
-    points = points - torch.mean(points, 0, keepdim=True)  # center
-    dist = torch.max(torch.sqrt(torch.sum(points ** 2, dim=1)))
-    print(dist)
-    points = points / dist  # scale
-
-    return points
-
-
-def write_ply(save_path,points,text=True):
-    for j in range(points.shape[0]):
-        point = [(points[j,i,0], points[j,i,1], points[j,i,2]) for i in range(points.shape[1])]
-        vertex = np.array(point, dtype=[('x', 'f4'), ('y', 'f4'),('z', 'f4')])
-        el = PlyElement.describe(vertex, 'vertex', comments=['vertices'])
-        PlyData([el], text=text).write(f"{save_path}_{j}.ply")
-    
-    
-def save_ply(filename, point_cloud):
-
-    num_points = point_cloud.shape[1]
-
-    indices_to_save = [0, 100, 150, 250, 270, 370, 470, 490, 590, 690, 710, 730, 750, 836, 856, 942, 962, 1062, 1162, 1182, 1202, \
-        1222, 1322, 1422, 1508, 1528, 1628, 1728, 1748, 1848, 1868, 1968, 1988, 2008, 2108, 2128, 2228, 2328, 2428, 2448]  # 想要保存的特定索引
-
-    # for i in indices_to_save:
-    for i in range(point_cloud.shape[0]):
-        points = []
-        for j in range(num_points):
-            point = (point_cloud[i, j, 0], point_cloud[i, j, 1], point_cloud[i, j, 2])
-            points.append(point)
-
-        vertex = np.array(points, dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')])
-
-        el = PlyElement.describe(vertex, 'vertex', comments=['vertices'])
-        plydata = PlyData([el])
-
-        plydata.write(f"{filename}_{i}.ply")
     
 
 def attack():
@@ -103,28 +63,6 @@ def attack():
         all_ori_pc.append(pc.detach().cpu().numpy())
         all_adv_pc.append(adv_pc)
         all_real_lbl.append(label.detach().cpu().numpy())
-
-
-        # # 保存已生成batch的adv_pc
-        # all_ori_pc1=np.concatenate(all_ori_pc, axis=0)
-        # all_adv_pc1 = np.concatenate(all_adv_pc, axis=0)
-        # all_real_lbl1 = np.concatenate(all_real_lbl, axis=0)
-
-        # save_path = './results-test3/{}contra+{}fea+{}dist+{}curv/{}'.format(args.contra_loss_weight, args.fea_loss_weight, args.dist_loss_weight, args.curv_loss_weight, args.model)
-        # if not os.path.exists(save_path):
-        #     os.makedirs(save_path)
-        # save_name = '{}-budget-{}_t-{}.npz'.format(i, args.budget, args.temperature)
-        # np.savez(os.path.join(save_path, save_name),
-        #     ori_pc=all_ori_pc1.astype(np.float32),
-        #     test_pc=all_adv_pc1.astype(np.float32),
-        #     test_label=all_real_lbl1.astype(np.uint8))
-
-        # # 保存每个batch的可视化
-        # ply_path = './ply-test3/{}contra+{}fea+{}dist+{}curv/{}_t-{}/{}'.format(args.contra_loss_weight, args.fea_loss_weight, args.dist_loss_weight, args.curv_loss_weight, args.model, args.temperature, i)
-        # if not os.path.exists(ply_path):
-        #     os.makedirs(ply_path)
-        # write_ply("./ply-test3/{}contra+{}fea+{}dist+{}curv/{}_t-{}/{}/{}".format(args.contra_loss_weight, args.fea_loss_weight, args.dist_loss_weight, args.curv_loss_weight, args.model, args.temperature, i, args.budget), adv_pc)   
-        # i = i+1
 
     # accumulate results
     all_ori_pc=np.concatenate(all_ori_pc, axis=0)  # [num_data, K, 3]
@@ -173,13 +111,13 @@ if __name__ == "__main__":
     parser.add_argument('--dropout', type=float, default=0.5,help='dropout rate')
 
     parser.add_argument('--contra_loss_weight', type=float, default=1.0,help='')
-    parser.add_argument('--fea_loss_weight', type=float, default=0.3, help='') # 取倒数乘1
+    parser.add_argument('--fea_loss_weight', type=float, default=0.3, help='')
     parser.add_argument('--dist_loss_weight', type=float, default=1.0, help='')
-    parser.add_argument('--curv_loss_weight', type=float, default=1.0, help='')
-    parser.add_argument('--L2_loss_weight', type=float, default=1.0, help='')
+    # parser.add_argument('--curv_loss_weight', type=float, default=1.0, help='')
+    # parser.add_argument('--L2_loss_weight', type=float, default=1.0, help='')
     parser.add_argument('--Chamfer_loss_weight', type=float, default=1.0, help='')
     parser.add_argument('--Hausdorff_loss_weight', type=float, default=0.1, help='')
-    parser.add_argument('--curv_loss_knn', type=int, default=16, help='')
+    # parser.add_argument('--curv_loss_knn', type=int, default=16, help='')
 
     # ------------------------------------------mamba3d------------------------------------
     parser.add_argument('--trans_dim', type=int, default=384, help='')
@@ -216,14 +154,13 @@ if __name__ == "__main__":
     elif args.model.lower() == 'pointconv':
         model = PointConvDensityClsSsg(num_classes=40)
     elif args.model.lower() == 'pct':
-        model = Pct(args) # 模型输入[B,3,N]
+        model = Pct(args) 
     elif args.model.lower() == 'mamba3d':
         model = Mamba3D(args)
     else:
         print('Model not recognized')
         exit(-1)
     
-    # model = nn.DataParallel(model, device_ids=[0, 1]).cuda()
 
     state_dict = torch.load(BEST_WEIGHTS[args.model], map_location='cpu')
     print('Loading weight {}'.format(BEST_WEIGHTS[args.model]))
@@ -249,16 +186,16 @@ if __name__ == "__main__":
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=4, drop_last=False)
 
     clip_func = ClipPointsLinf(budget=args.budget)
-    dist_func1 = L2Dist()
-    dist_func2 = ChamferDist()
-    dist_func3 = HausdorffDist()
+    # dist_func1 = L2Dist()
+    dist_func_cd = ChamferDist()
+    dist_func_h = HausdorffDist()
     contra_func = simCLRLoss(temperature = args.temperature)
-    curv_func = CurvLoss(curv_loss_knn = args.curv_loss_knn, curv_loss_weight = args.curv_loss_weight)
+    # curv_func = CurvLoss(curv_loss_knn = args.curv_loss_knn, curv_loss_weight = args.curv_loss_weight)
     fea_func = nn.MSELoss()
 
     # functions = [shear, translation, rotation, jitter, scaling, drop]
 
-    attack_method = CWContra(model, dist_func1, dist_func2, dist_func3, contra_func, curv_func, fea_func, clip_func)
+    attack_method = CWContra(model, dist_func_cd, dist_func_h, contra_func, fea_func, clip_func)
 
     print(len(test_set))
     # run attack
@@ -280,8 +217,3 @@ if __name__ == "__main__":
              ori_pc=ori_data.astype(np.float32),
              test_pc=attacked_data.astype(np.float32),
              test_label=real_label.astype(np.uint8))
-    
-    ply_path = './mn10/ply/{}contra+{}fea+{}dist+{}curv/{}_t-{}'.format(args.contra_loss_weight, args.fea_loss_weight, args.dist_loss_weight, args.curv_loss_weight, args.model, args.temperature)
-    if not os.path.exists(ply_path):
-         os.makedirs(ply_path)
-    write_ply("./mn10/ply/{}contra+{}fea+{}dist+{}curv/{}_t-{}/{}".format(args.contra_loss_weight, args.fea_loss_weight, args.dist_loss_weight, args.curv_loss_weight, args.model, args.temperature, args.budget), attacked_data)
