@@ -5,12 +5,12 @@ BEST_WEIGHTS = {
     # trained on resampled normal mn40 dataset
     'mn40': {
         1024: {
-            'pointnet': '/data2/home/E22201099/C-FA/custom_pretrain/mn40/pointnet.pth',
-            'pointnet2': '/data2/home/E22201099/C-FA/custom_pretrain/mn40/pointnet2.pth',
-            'pointconv': '/data2/home/E22201099/C-FA/custom_pretrain/mn40/pointconv.pth',
-            'dgcnn': '/data2/home/E22201099/C-FA/custom_pretrain/mn40/dgcnn.pth',
-            'pct':'/data2/home/E22201099/C-FA/custom_pretrain/mn40/model.t7', 
-            'mamba3d':'/data2/home/E22201099/C-FA/custom_pretrain/mn40/pointmae_ckpt-best.pth', 
+            'pointnet': 'custom_pretrain/mn40/pointnet.pth',
+            'pointnet2': 'custom_pretrain/mn40/pointnet2.pth',
+            'pointconv': 'custom_pretrain/mn40/pointconv.pth',
+            'dgcnn': 'custom_pretrain/mn40/dgcnn.pth',
+            'pct':'custom_pretrain/mn40/model.t7', 
+            'mamba3d':'custom_pretrain/mn40/pointmae_ckpt-best.pth', 
         },
     },
 }
@@ -40,4 +40,4 @@ MAX_BATCH = {
 }
 
 
-PU_NET_WEIGHT = '/data2/home/E22201099/C-FA/defense/DUP_Net/pu-in_1024-up_4.pth'
+PU_NET_WEIGHT = 'defense/DUP_Net/pu-in_1024-up_4.pth'
