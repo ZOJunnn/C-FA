@@ -5,18 +5,18 @@
 - Attack
 
 ```
-python C-FA/contrastive_attack.py //python
+python C-FA/contrastive_attack.py
 ```
 
 
 - Defense
 ```
-python C-FA/defend_npz.py //python
+python C-FA/defend_npz.py
 ```
 
 
 - Test transferibility
 ```
-python C-FA/test_trans.py //python
+python C-FA/test_trans.py
 ```
 
